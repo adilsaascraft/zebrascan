@@ -9,7 +9,7 @@ export default function Home() {
   const router = useRouter()
 
   return (
-    <div className="flex flex-col bg-gradient-to-br from-sky-50 to-gray-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-sky-50 to-gray-100">
       
       {/* ---------------- BANNER ---------------- */}
       <div className="relative w-full overflow-hidden">
@@ -27,7 +27,7 @@ export default function Home() {
 
       {/* ---------------- CONTENT SECTION ---------------- */}
       <div className="flex justify-center px-4 py-10 flex-1">
-        <Card className="w-full max-w-md shadow-xl rounded-2xl">
+        <Card className="w-full h-[300px] max-w-md shadow-xl rounded-2xl">
           <CardHeader>
             <CardTitle className="text-2xl font-semibold text-center">
               Choose Mode of Scan
