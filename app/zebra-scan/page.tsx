@@ -54,17 +54,6 @@ export default function ZebraGateScanner() {
     inputRef.current?.focus()
   }, [activeDay, result])
 
-  // Auto-hide result after 2.5 sec
-  useEffect(() => {
-    if (!result) return
-
-    const timer = setTimeout(() => {
-      setResult(null)
-    }, 2500)
-
-    return () => clearTimeout(timer)
-  }, [result])
-
   const markAttendance = async (regNum: string) => {
     if (!activeDay) {
       toast.error('Please select a day first')
@@ -74,6 +63,9 @@ export default function ZebraGateScanner() {
     if (processing) return
 
     setProcessing(true)
+
+    // ✅ Clear previous result immediately when new scan starts
+    setResult(null)
 
     try {
       const res = await fetch(
@@ -91,7 +83,6 @@ export default function ZebraGateScanner() {
         throw new Error(json?.message || 'Scan failed')
       }
 
-      // Safe extraction
       const attendee = json?.data || {}
 
       setResult({
