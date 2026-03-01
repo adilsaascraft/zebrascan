@@ -9,7 +9,7 @@ export default function Home() {
   const router = useRouter()
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-sky-50 to-gray-100">
+    <div className="flex flex-col bg-gradient-to-br from-sky-50 to-gray-100">
       
       {/* ---------------- BANNER ---------------- */}
       <div className="relative w-full overflow-hidden">
