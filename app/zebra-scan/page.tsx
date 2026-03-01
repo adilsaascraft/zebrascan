@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 
 type ScanDay = 'day1' | 'day2'
 
@@ -17,13 +17,28 @@ const DAY_API: Record<ScanDay, string> = {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
+type ScanResult =
+  | {
+      type: 'success'
+      message: string
+      name: string
+      mobile: string
+      note: string
+      regNum: string
+    }
+  | {
+      type: 'error'
+      message: string
+    }
+  | null
+
 export default function ZebraGateScanner() {
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   const [activeDay, setActiveDay] = useState<ScanDay | null>(null)
   const [scanValue, setScanValue] = useState('')
   const [processing, setProcessing] = useState(false)
-  const [successFlash, setSuccessFlash] = useState(false)
+  const [result, setResult] = useState<ScanResult>(null)
 
   const { data, mutate } = useSWR(
     activeDay
@@ -34,15 +49,21 @@ export default function ZebraGateScanner() {
 
   const count = data?.count ?? 0
 
-  // Keep focus always
+  // Keep input focused always
   useEffect(() => {
     inputRef.current?.focus()
-  }, [activeDay])
+  }, [activeDay, result])
 
-  const triggerSuccess = () => {
-    setSuccessFlash(true)
-    setTimeout(() => setSuccessFlash(false), 800)
-  }
+  // Auto-hide result after 2.5 sec
+  useEffect(() => {
+    if (!result) return
+
+    const timer = setTimeout(() => {
+      setResult(null)
+    }, 2500)
+
+    return () => clearTimeout(timer)
+  }, [result])
 
   const markAttendance = async (regNum: string) => {
     if (!activeDay) {
@@ -64,22 +85,37 @@ export default function ZebraGateScanner() {
         },
       )
 
-      const result = await res.json()
+      const json = await res.json()
 
-      if (!res.ok) throw new Error(result.message)
+      if (!res.ok) {
+        throw new Error(json?.message || 'Scan failed')
+      }
 
-      triggerSuccess()
+      // Safe extraction
+      const attendee = json?.data || {}
+
+      setResult({
+        type: 'success',
+        message: json?.message || 'Success',
+        name: attendee?.name || '-',
+        mobile: attendee?.mobile || '-',
+        note: attendee?.note || '-',
+        regNum: attendee?.regNum || regNum,
+      })
+
       mutate()
       setScanValue('')
-      inputRef.current?.focus()
     } catch (err: any) {
-      toast.error(err?.message || 'Scan failed')
+      setResult({
+        type: 'error',
+        message: err?.message || 'Scan failed',
+      })
     } finally {
       setProcessing(false)
+      inputRef.current?.focus()
     }
   }
 
-  // Zebra auto-enter handler
   const handleKeyDown = async (
     e: React.KeyboardEvent<HTMLInputElement>,
   ) => {
@@ -91,27 +127,24 @@ export default function ZebraGateScanner() {
   }
 
   return (
-    <div
-      className={`min-h-screen flex flex-col items-center transition-colors
-        ${successFlash ? 'bg-green-600' : 'bg-background'}
-      `}
-    >
-       {/* ---------------- BANNER ---------------- */}
-              <Image
-                src="https://res.cloudinary.com/dymanaa1j/image/upload/v1772339421/ChatGPT_Image_Mar_1_2026_09_57_48_AM_1_nqjcvh.png"
-                alt="Wedding Banner"
-                width={1536}
-                height={380}
-                priority
-                sizes="100vw"
-                className="w-full h-auto object-contain"
-              />
+    <div className="min-h-screen flex flex-col items-center bg-background">
+
+      {/* ---------------- BANNER ---------------- */}
+      <Image
+        src="https://res.cloudinary.com/dymanaa1j/image/upload/v1772339421/ChatGPT_Image_Mar_1_2026_09_57_48_AM_1_nqjcvh.png"
+        alt="Wedding Banner"
+        width={1536}
+        height={380}
+        priority
+        sizes="100vw"
+        className="w-full h-auto object-contain"
+      />
 
       {/* ---------------- DAY SELECT ---------------- */}
-            <div className="flex justify-center gap-3 m-3 ">
+      <div className="flex justify-center gap-3 m-4">
         {(['day1', 'day2'] as ScanDay[]).map((day) => {
           const isActive = activeDay === day
-      
+
           return (
             <Button
               key={day}
@@ -134,20 +167,60 @@ export default function ZebraGateScanner() {
         })}
       </div>
 
-      {/* 3️⃣ Visible Input */}
-      <div className="w-full max-w-xl space-y-4 p-3">
+      {/* ---------------- RESULT PANEL ---------------- */}
+      {result && (
+        <div
+          className={`mx-auto w-full max-w-md rounded-xl p-4 text-white space-y-2 transition-all
+          ${result.type === 'success' ? 'bg-green-600' : 'bg-red-600'}
+        `}
+        >
+          <div className="flex items-center gap-2">
+            {result.type === 'success' ? <CheckCircle2 /> : <XCircle />}
+            <span className="font-bold text-base">
+              {result.message}
+            </span>
+          </div>
+
+          {result.type === 'success' && (
+            <div className="mt-4 rounded-xl bg-white/20 p-4 space-y-3 text-sm">
+
+              <div className="grid grid-cols-3 gap-2">
+                <span className="font-medium opacity-80">Reg No</span>
+                <span className="col-span-2 font-semibold">{result.regNum}</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <span className="font-medium opacity-80">Name</span>
+                <span className="col-span-2 font-semibold">{result.name}</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <span className="font-medium opacity-80">Mobile</span>
+                <span className="col-span-2 font-semibold">{result.mobile}</span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <span className="font-medium opacity-80">Note</span>
+                <span className="col-span-2 font-semibold">{result.note}</span>
+              </div>
+
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---------------- INPUT ---------------- */}
+      <div className="w-full max-w-xl space-y-4 p-4">
         <input
           ref={inputRef}
           value={scanValue}
           onChange={(e) => setScanValue(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Scanned Value..."
-          className="w-full h-20 text-2xl px-6 rounded-2xl border 
-                     shadow-lg focus:ring-2 focus:ring-primary outline-none"
+          className="w-full h-20 text-2xl px-6 rounded-2xl border shadow-lg focus:ring-2 focus:ring-primary outline-none"
           autoFocus
         />
 
-        {/* 6️⃣ Manual Submit */}
         <Button
           onClick={() => markAttendance(scanValue.trim())}
           disabled={processing}
@@ -156,14 +229,6 @@ export default function ZebraGateScanner() {
           {processing ? 'Submitting...' : 'Submit'}
         </Button>
       </div>
-
-      {/* 8️⃣ Success Tick */}
-      {successFlash && (
-        <CheckCircle2
-          size={180}
-          className="text-white fixed inset-0 m-auto"
-        />
-      )}
     </div>
   )
 }
