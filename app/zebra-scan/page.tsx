@@ -54,58 +54,70 @@ export default function ZebraGateScanner() {
     inputRef.current?.focus()
   }, [activeDay, result])
 
-  const markAttendance = async (regNum: string) => {
-    if (!activeDay) {
-      toast.error('Please select a day first')
+const markAttendance = async (regNum: string) => {
+  if (!activeDay) {
+    toast.error('Please select a day first', { duration: 2000 })
+    return
+  }
+
+  if (processing) return
+
+  setProcessing(true)
+  setResult(null) // clear previous success panel
+
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}${DAY_API[activeDay]}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ regNum }),
+      },
+    )
+
+    const json = await res.json()
+
+    // 🔥 Handle HTTP error
+    if (!res.ok) {
+      throw new Error(json?.message || 'Scan failed')
+    }
+
+    // 🔥 Handle success:false from backend
+    if (!json?.success) {
+      toast.error(json?.message || 'Scan failed', {
+        duration: 2000,
+      })
+
+      setScanValue('') // clear input
+      inputRef.current?.focus()
       return
     }
 
-    if (processing) return
+    // ✅ SUCCESS CASE
+    const attendee = json?.data || {}
 
-    setProcessing(true)
+    setResult({
+      type: 'success',
+      message: json?.message || 'Success',
+      name: attendee?.name || '-',
+      mobile: attendee?.mobile || '-',
+      note: attendee?.note || '-',
+      regNum: attendee?.regNum || regNum,
+    })
 
-    // ✅ Clear previous result immediately when new scan starts
-    setResult(null)
+    mutate()
+    setScanValue('')
+  } catch (err: any) {
+    toast.error(err?.message || 'Scan failed', {
+      duration: 2000,
+    })
 
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}${DAY_API[activeDay]}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ regNum }),
-        },
-      )
-
-      const json = await res.json()
-
-      if (!res.ok) {
-        throw new Error(json?.message || 'Scan failed')
-      }
-
-      const attendee = json?.data || {}
-
-      setResult({
-        type: 'success',
-        message: json?.message || 'Success',
-        name: attendee?.name || '-',
-        mobile: attendee?.mobile || '-',
-        note: attendee?.note || '-',
-        regNum: attendee?.regNum || regNum,
-      })
-
-      mutate()
-      setScanValue('')
-    } catch (err: any) {
-      setResult({
-        type: 'error',
-        message: err?.message || 'Scan failed',
-      })
-    } finally {
-      setProcessing(false)
-      inputRef.current?.focus()
-    }
+    setScanValue('')
+  } finally {
+    setProcessing(false)
+    inputRef.current?.focus()
   }
+}
 
   const handleKeyDown = async (
     e: React.KeyboardEvent<HTMLInputElement>,
