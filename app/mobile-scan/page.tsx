@@ -157,22 +157,35 @@ export default function QrScanner() {
 
   return (
     <div className="space-y-6">
-      <Image
-        src="https://res.cloudinary.com/dymanaa1j/image/upload/v1772339421/ChatGPT_Image_Mar_1_2026_09_57_48_AM_1_nqjcvh.png"
-        alt="Wedding Banner"
-        width={1536}
-        height={380}
-        className="w-full h-auto object-contain"
-      />
+      {/* ---------------- BANNER ---------------- */}
+      <div className="relative w-full overflow-hidden">
+        <Image
+          src="https://res.cloudinary.com/dymanaa1j/image/upload/v1772339421/ChatGPT_Image_Mar_1_2026_09_57_48_AM_1_nqjcvh.png"
+          alt="Wedding Banner"
+          width={1536}
+          height={380}
+          priority
+          sizes="100vw"
+          className="w-full h-auto object-contain"
+        />
+        <div className="absolute inset-0 bg-orange-900/30" />
+      </div>
 
+      {/* ---------------- DAY SELECT ---------------- */}
       <div className="flex justify-center gap-3">
         {(['day1', 'day2'] as ScanDay[]).map((day) => {
           const isActive = activeDay === day
+
           return (
             <Button
               key={day}
               variant={isActive ? 'default' : 'outline'}
               onClick={() => setActiveDay(day)}
+              className={
+                isActive
+                  ? 'bg-sky-800 hover:bg-sky-900 text-white'
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700 border-gray-300'
+              }
             >
               {day.toUpperCase()}
               {isActive && (
@@ -185,13 +198,14 @@ export default function QrScanner() {
         })}
       </div>
 
-      {/* Unified Result Panel */}
+      {/* ---------------- RESULT OVERLAY ---------------- */}
       {result && (
         <div
-          className={`relative mx-auto w-full max-w-md rounded-xl p-4 text-white
-          ${result.type === 'success' ? 'bg-green-600' : 'bg-red-600'}
-        `}
+          className={`relative mx-auto max-w-sm rounded-lg p-4 text-white space-y-2
+      ${result.type === 'success' ? 'bg-green-600' : 'bg-red-600'}
+    `}
         >
+          {/* Close Icon */}
           <button
             onClick={() => setResult(null)}
             className="absolute top-3 right-3 text-white/80 hover:text-white"
@@ -201,35 +215,48 @@ export default function QrScanner() {
 
           <div className="flex items-center gap-2">
             {result.type === 'success' ? <CheckCircle2 /> : <XCircle />}
-            <span className="font-bold">{result.message}</span>
+            <span className="font-bold text-base">{result.message}</span>
           </div>
 
-          <div className="mt-4 rounded-xl bg-white/20 p-4 space-y-3 text-sm">
-            <div className="grid grid-cols-3 gap-2">
-              <span>Reg No</span>
+          <div className="mt-4 rounded-xl border bg-muted/40 p-4 space-y-3">
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <span className="font-medium text-muted-foreground">Reg No</span>
               <span className="col-span-2 font-semibold">{result.regNum}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <span>Name</span>
+
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <span className="font-medium text-muted-foreground">Name</span>
               <span className="col-span-2 font-semibold">{result.name}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <span>Mobile</span>
+
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <span className="font-medium text-muted-foreground">Mobile</span>
               <span className="col-span-2 font-semibold">{result.mobile}</span>
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <span>Note</span>
+
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <span className="font-medium text-muted-foreground">Note</span>
               <span className="col-span-2 font-semibold">{result.note}</span>
             </div>
           </div>
         </div>
       )}
 
-      <div id="qr-reader" className="rounded-xl border" />
+      {/* ---------------- SCANNER ---------------- */}
+      <div className="mx-auto w-full max-w-sm">
+        <div id="qr-reader" className="rounded-xl border overflow-hidden" />
+      </div>
 
-      <Button onClick={startScan} disabled={isScanning} className="w-full">
-        {isScanning ? 'Scanning…' : 'Start Scan'}
-      </Button>
+      {/* ---------------- ACTION ---------------- */}
+      <div className="max-w-sm mx-auto">
+        <Button
+          onClick={startScan}
+          disabled={isScanning}
+          className="w-full bg-sky-800 hover:bg-sky-900"
+        >
+          {isScanning ? 'Scanning…' : 'Start Scan'}
+        </Button>
+      </div>
     </div>
   )
 }
