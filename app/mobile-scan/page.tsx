@@ -6,7 +6,7 @@ import useSWR from 'swr'
 import { Html5Qrcode } from 'html5-qrcode'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, XCircle, X } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 type ScanDay = 'day1' | 'day2'
@@ -18,14 +18,20 @@ const DAY_API: Record<ScanDay, string> = {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
-type ScanResult = {
-  type: 'success' | 'error'
-  message: string
-  name: string
-  mobile: string
-  note: string
-  regNum: string
-} | null
+type ScanResult =
+  | {
+      type: 'success'
+      message: string
+      name: string
+      mobile: string
+      note: string
+      regNum: string
+    }
+  | {
+      type: 'error'
+      message: string
+    }
+  | null
 
 export default function QrScanner() {
   const scannerRef = useRef<Html5Qrcode | null>(null)
@@ -87,7 +93,6 @@ export default function QrScanner() {
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 260, height: 260 } },
         async (decodedText) => {
-          await stopScanner()
           await markDelivered(decodedText)
         },
         () => {},
@@ -110,44 +115,40 @@ export default function QrScanner() {
         },
       )
 
-      const json = await res.json()
-      const attendee = json?.data || {}
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message)
 
-      if (!res.ok) {
-        throw new Error(json?.message || 'Scan failed')
-      }
+      playBeep('success')
+      navigator.vibrate?.(120)
 
-      if (json.success === true) {
-        playBeep('success')
-        navigator.vibrate?.(120)
+      setResult({
+        type: 'success',
+        message: data.message,
+        name: data.data.name,
+        mobile: data.data.mobile,
+        note: data.data.note,
+        regNum: data.data.regNum,
+      })
 
-        setResult({
-          type: 'success',
-          message: json.message,
-          name: attendee.name || '-',
-          mobile: attendee.mobile || '-',
-          note: attendee.note || '-',
-          regNum: attendee.regNum || regNum,
-        })
-
-        mutate()
-      } else {
-        playBeep('error')
-        navigator.vibrate?.([80, 40, 80])
-
-        setResult({
-          type: 'error',
-          message: json.message,
-          name: attendee.name || '-',
-          mobile: attendee.mobile || '-',
-          note: attendee.note || '-',
-          regNum: attendee.regNum || regNum,
-        })
-      }
+      mutate()
     } catch (err: any) {
-      toast.error(err?.message || 'Scan failed')
+      playBeep('error')
+      navigator.vibrate?.([80, 40, 80])
+
+      setResult({
+        type: 'error',
+        message: err.message || 'Scan failed',
+      })
     }
   }
+
+  // 🔥 FIXED: Do NOT stop scanner on tab change
+  useEffect(() => {
+    if (!activeDay) return
+
+    // Only clear result
+    setResult(null)
+  }, [activeDay])
 
   useEffect(() => {
     return () => {
@@ -157,7 +158,7 @@ export default function QrScanner() {
 
   return (
     <div className="space-y-6">
-      {/* ---------------- BANNER ---------------- */}
+      {/* Banner */}
       <div className="relative w-full overflow-hidden">
         <Image
           src="https://res.cloudinary.com/dymanaa1j/image/upload/v1772339421/ChatGPT_Image_Mar_1_2026_09_57_48_AM_1_nqjcvh.png"
@@ -171,11 +172,10 @@ export default function QrScanner() {
         <div className="absolute inset-0 bg-orange-900/30" />
       </div>
 
-      {/* ---------------- DAY SELECT ---------------- */}
+      {/* Day Tabs */}
       <div className="flex justify-center gap-3">
         {(['day1', 'day2'] as ScanDay[]).map((day) => {
           const isActive = activeDay === day
-
           return (
             <Button
               key={day}
@@ -198,56 +198,53 @@ export default function QrScanner() {
         })}
       </div>
 
-      {/* ---------------- RESULT OVERLAY ---------------- */}
+      {/* Result Overlay */}
       {result && (
         <div
-          className={`relative mx-auto max-w-sm rounded-lg p-4 text-white space-y-2
+          className={`mx-auto max-w-sm rounded-lg p-4 text-white space-y-2
       ${result.type === 'success' ? 'bg-green-600' : 'bg-red-600'}
     `}
         >
-          {/* Close Icon */}
-          <button
-            onClick={() => setResult(null)}
-            className="absolute top-3 right-3 text-white/80 hover:text-white"
-          >
-            <X size={18} />
-          </button>
-
           <div className="flex items-center gap-2">
             {result.type === 'success' ? <CheckCircle2 /> : <XCircle />}
             <span className="font-bold text-base">{result.message}</span>
           </div>
 
-          <div className="mt-4 rounded-xl border bg-muted/40 p-4 space-y-3">
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <span className="font-medium text-muted-foreground">Reg No</span>
-              <span className="col-span-2 font-semibold">{result.regNum}</span>
+          {result.type === 'success' && (
+            <div className="mt-4 rounded-xl border bg-muted/40 p-4 space-y-3">
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <span className="font-medium text-muted-foreground">
+                  Reg No
+                </span>
+                <span className="col-span-2 font-semibold">
+                  {result.regNum}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <span className="font-medium text-muted-foreground">Name</span>
+                <span className="col-span-2 font-semibold">{result.name}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <span className="font-medium text-muted-foreground">
+                  Mobile
+                </span>
+                <span className="col-span-2 font-semibold">
+                  {result.mobile}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <span className="font-medium text-muted-foreground">Note</span>
+                <span className="col-span-2 font-semibold">{result.note}</span>
+              </div>
             </div>
-
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <span className="font-medium text-muted-foreground">Name</span>
-              <span className="col-span-2 font-semibold">{result.name}</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <span className="font-medium text-muted-foreground">Mobile</span>
-              <span className="col-span-2 font-semibold">{result.mobile}</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <span className="font-medium text-muted-foreground">Note</span>
-              <span className="col-span-2 font-semibold">{result.note}</span>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* ---------------- SCANNER ---------------- */}
       <div className="mx-auto w-full max-w-sm">
         <div id="qr-reader" className="rounded-xl border overflow-hidden" />
       </div>
 
-      {/* ---------------- ACTION ---------------- */}
       <div className="max-w-sm mx-auto">
         <Button
           onClick={startScan}
